@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>撲克牌記憶翻牌遊戲 | Poker Memory Game</title>
+    <style>
+        :root {
+            --bg-p1: #ff4d4d; /* 紅 Red */
+            --bg-p2: #4dff4d; /* 綠 Green */
+            --bg-p3: #ffff4d; /* 黃 Yellow */
+            --bg-p4: #ffffff; /* 白 White */
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, "PingFang TC", "Heiti TC", "Microsoft JhengHei", "微軟正黑體", sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #2b2d42; /* 初始質感深色背景 */
+            transition: background-color 0.5s ease;
+            text-align: center;
+            color: #1a1a1a;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* 隱藏/顯示與過渡動畫 */
+        .hidden {
+            display: none !important;
+        }
+
+        .fade-in {
+            animation: fadeInAnim 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeInAnim {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -46%) scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        /* --- 頂部控制列 (語言切換與音效開關) --- */
+        #top-controls {
+            position: fixed;
+            top: 14px;
+            right: 16px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .ctrl-btn {
+            background: rgba(255, 255, 255, 0.92);
+            border: 2px solid #333;
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #111;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ctrl-btn:hover {
+            transform: translateY(-2px);
+            background: #fff;
+            box-shadow: 0 5px 12px rgba(0,0,0,0.4);
+        }
+
+        .ctrl-btn:active {
+            transform: translateY(0);
+        }
+
+        /* --- 開始畫面 --- */
+        #setup-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.96);
+            padding: 36px 32px;
+            border-radius: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+            width: 92%;
+            max-width: 540px;
+            z-index: 20;
+        }
+
+        #setup-screen h1 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 28px;
+            color: #1a365d;
+        }
+
+        .subtitle-hint {
+            font-size: 14px;
+            color: #555;
+            background: #eef2f7;
+            padding: 8px 14px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+
+        .player-icons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .player-btn {
+            background: linear-gradient(145deg, #ffffff, #e6e6e6);
+            border: 2px solid #ccc;
+            border-radius: 12px;
+            padding: 16px 10px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .player-btn:hover {
+            transform: translateY(-4px) scale(1.05);
+            border-color: #007bff;
+            box-shadow: 0 8px 15px rgba(0, 123, 255, 0.25);
+        }
+
+        .icon-text {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .mode-badge {
+            font-size: 11px;
+            color: #d9534f;
+            margin-top: 4px;
+            font-weight: normal;
+        }
+
+        /* --- 遊戲畫面 --- */
+        #game-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 64px 20px 30px 20px;
+            overflow-x: auto;
+            min-height: 100vh;
+        }
+
+        #info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            width: 100%;
+            max-width: 1100px;
+            background: rgba(255, 255, 255, 0.92);
+            padding: 12px 24px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            font-weight: bold;
+            font-size: 18px;
+            backdrop-filter: blur(4px);
+        }
+
+        #scores {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        #scores span {
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.05);
+            transition: all 0.2s;
+        }
+
+        .active-player {
+            border: 2px solid #000;
+            background: rgba(0,0,0,0.15) !important;
+            transform: scale(1.05);
+        }
+
+        #timer-display {
+            font-variant-numeric: tabular-nums;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.06);
+        }
+
+        /* 單人倒數計時快到時的閃爍提醒 */
+        .timer-urgent {
+            color: #fff !important;
+            background: #dc3545 !important;
+            animation: pulseUrgent 0.8s infinite alternate;
+        }
+
+        @keyframes pulseUrgent {
+            from { transform: scale(1); }
+            to { transform: scale(1.08); }
+        }
+
+        /* 牌局設定：固定 4列 x 13行 */
+        #board-container {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 12px;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(13, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+            min-width: 900px; /* 強制最小寬度，避免牌擠壓變形，手機版可滑動或縮放 */
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 6px;
+        }
+
+        /* --- 撲克牌樣式與 CSS 3D 翻轉效果 --- */
+        .card {
+            aspect-ratio: 2 / 3;
+            perspective: 1000px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .card:hover .card-inner:not(.flipped-inner) {
+            box-shadow: 0 6px 12px rgba(0,0,0,0.35);
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            /* 需求 2: 設定 transition: transform 0.4s 與 3D 保留 */
+            transition: transform 0.4s ease-in-out, box-shadow 0.2s ease;
+            transform-style: preserve-3d;
+            border-radius: 8px;
+        }
+
+        /* 需求 2: 翻開時 transform: rotateY(180deg) */
+        .card.flipped .card-inner,
+        .card.matched .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        /* 配對成功時的視覺微動效 */
+        .card.matched .card-front {
+            box-shadow: 0 0 12px rgba(40, 167, 69, 0.85);
+            border: 2px solid #28a745;
+            animation: matchPulse 0.45s ease-out;
+        }
+
+        @keyframes matchPulse {
+            0% { transform: rotateY(180deg) scale(1); }
+            50% { transform: rotateY(180deg) scale(1.09); }
+            100% { transform: rotateY(180deg) scale(1); }
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border-radius: 8px;
+            box-shadow: 1px 2px 5px rgba(0,0,0,0.4);
+        }
+
+        /* 牌背 */
+        .card-back {
+            background: repeating-linear-gradient(
+                45deg,
+                #1a365d,
+                #1a365d 10px,
+                #2a4365 10px,
+                #2a4365 20px
+            );
+            border: 3px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-back::after {
+            content: "♠♥♦♣";
+            font-size: 10px;
+            color: rgba(255,255,255,0.25);
+            letter-spacing: 1px;
+        }
+
+        /* 牌面 */
+        .card-front {
+            background-color: #fff;
+            transform: rotateY(180deg);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .card-front.red-suit { color: #d90429; }
+        .card-front.black-suit { color: #111; }
+
+        .corner {
+            font-size: clamp(12px, 1.3vw, 17px);
+            line-height: 1.05;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .top-left { align-self: flex-start; }
+        .bottom-right { align-self: flex-end; transform: rotate(180deg); }
+        
+        .center-suit {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(22px, 2.8vw, 38px);
+        }
+
+        /* --- 結束結算畫面 --- */
+        #end-screen {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.97);
+            padding: 36px 32px;
+            border-radius: 16px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+            width: 92%;
+            max-width: 460px;
+            z-index: 100;
+        }
+
+        #end-icon {
+            font-size: 54px;
+            margin-bottom: 10px;
+        }
+
+        #end-title {
+            margin-top: 0;
+            margin-bottom: 14px;
+            font-size: 26px;
+        }
+
+        #final-scores {
+            text-align: center;
+            margin-bottom: 16px;
+            font-size: 18px;
+            line-height: 1.7;
+            background: #f8f9fa;
+            padding: 14px;
+            border-radius: 10px;
+        }
+
+        #encouragement-msg {
+            font-size: 16px;
+            color: #495057;
+            font-weight: 600;
+            margin: 14px 0;
+            padding: 12px;
+            border-left: 4px solid #ff9800;
+            background: #fff8e1;
+            border-radius: 6px;
+            text-align: left;
+            line-height: 1.5;
+        }
+
+        #final-time {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a365d;
+            margin-bottom: 24px;
+        }
+
+        .end-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            border: none;
+            padding: 12px 22px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+        }
+
+        .play-again-btn {
+            background: #28a745;
+            color: white;
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
+        }
+        .play-again-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .home-btn {
+            background: #007bff;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+        }
+        .home-btn:hover {
+            background: #0069d9;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 頂部語言切換與音效控制列 -->
+    <div id="top-controls">
+        <button id="sound-toggle-btn" class="ctrl-btn" onclick="toggleSound()">
+            <span id="sound-icon">🔊</span>
+            <span id="sound-text">音效: 開</span>
+        </button>
+        <button id="lang-toggle-btn" class="ctrl-btn" onclick="toggleLanguage()">
+            🌐 <span id="lang-btn-text">English</span>
+        </button>
+    </div>
+
+    <!-- 開始設定畫面 -->
+    <div id="setup-screen" class="fade-in">
+        <h1 id="ui-title">撲克牌記憶遊戲</h1>
+        <div id="ui-single-hint" class="subtitle-hint">⏱️ 單人模式挑戰：限時 3 分鐘完成 26 對配對！</div>
+        <p id="ui-select-players" style="font-weight: bold; font-size: 18px; margin: 10px 0;">請選擇玩家人數：</p>
+        <div class="player-icons">
+            <button class="player-btn" onclick="startGame(1)">
+                <span class="icon-text">👤</span>
+                <span id="btn-p1">1人</span>
+                <span id="badge-p1" class="mode-badge">限時 3:00</span>
+            </button>
+            <button class="player-btn" onclick="startGame(2)">
+                <span class="icon-text">👥</span>
+                <span id="btn-p2">2人</span>
+            </button>
+            <button class="player-btn" onclick="startGame(3)">
+                <span class="icon-text">👤👥</span>
+                <span id="btn-p3">3人</span>
+            </button>
+            <button class="player-btn" onclick="startGame(4)">
+                <span class="icon-text">👥👥</span>
+                <span id="btn-p4">4人</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲主畫面 -->
+    <div id="game-screen" class="hidden">
+        <div id="info-bar">
+            <div id="status-text">目前輪到: 玩家 1</div>
+            <div id="scores"></div>
+            <div id="timer-display">時間: 00:00</div>
+        </div>
+        <div id="board-container">
+            <div id="board"></div>
+        </div>
+    </div>
+
+    <!-- 結束結算畫面 -->
+    <div id="end-screen" class="hidden">
+        <div id="end-icon">🎉</div>
+        <h2 id="end-title">遊戲結束！</h2>
+        <div id="final-scores"></div>
+        <div id="encouragement-msg" class="hidden"></div>
+        <p id="final-time"></p>
+        <div class="end-buttons">
+            <button id="btn-retry-same" class="action-btn play-again-btn" onclick="retrySameMode()">再挑戰一次</button>
+            <button id="btn-back-home" class="action-btn home-btn" onclick="resetGame()">返回人數選擇</button>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================
+         * 1. 多國語言字典 (繁體中文 / English)
+         * ========================================== */
+        let currentLang = 'zh'; // 'zh' 或 'en'
+
+        const i18n = {
+            zh: {
+                pageTitle: '撲克牌記憶翻牌遊戲',
+                gameTitle: '撲克牌記憶遊戲',
+                singleHint: '⏱️ 單人模式挑戰：限時 3 分鐘完成 26 對配對！',
+                selectPlayers: '請選擇玩家人數：',
+                p1: '1人',
+                p2: '2人',
+                p3: '3人',
+                p4: '4人',
+                badgeP1: '限時 3:00',
+                soundOn: '音效: 開',
+                soundOff: '音效: 關',
+                switchLangBtn: 'English',
+                colors: ['紅色', '綠色', '黃色', '白色'],
+                currentTurn: (p, color) => `目前輪到: 玩家 ${p} (${color})`,
+                singleStatus: (pairs) => `單人挑戰中 | 已配對: ${pairs} / 26 對`,
+                playerScore: (p, s) => `玩家 ${p}: ${s} 分`,
+                singleScore: (s) => `目前得分: ${s} 對`,
+                timerCountUp: (m, s) => `時間: ${m}:${s}`,
+                timerCountdown: (m, s) => `剩餘時間: ${m}:${s}`,
+                endTitleMulti: '遊戲結束！',
+                endTitleSingleWin: '恭喜挑戰成功！',
+                endTitleSingleLose: '時間到！任務失敗',
+                finalPlayerScore: (p, s) => `玩家 ${p}： ${s} 分`,
+                finalSinglePairs: (s) => `完成配對： ${s} / 26 對`,
+                winnerText: (w) => `🏆 贏家：玩家 ${w}`,
+                tieText: (w) => `🤝 平手贏家：玩家 ${w}`,
+                totalTimeMulti: (m, s) => `總耗時：${m}分${s}秒`,
+                totalTimeSingleWin: (m, s) => `任務完成花費時間：${m}分${s}秒`,
+                totalTimeSingleLose: '挑戰時限 3 分鐘已到！',
+                retryBtn: '再挑戰一次',
+                homeBtn: '返回人數選擇',
+                encouragements: [
+                    '別氣餒！記憶力是越練越強的，深呼吸再挑戰一次吧！💪',
+                    '差一點點就能翻完所有牌了！剛才記下的位置，下一局一定派得上用場！✨',
+                    '很棒的嘗試！每次翻牌都在強化大腦連結，相信你下一局一定能突破時限！🌟',
+                    '雖敗猶榮！撲克牌 52 張的高難度挑戰本來就不容易，再試一次展現你的實力！🔥'
+                ]
+            },
+            en: {
+                pageTitle: 'Poker Memory Card Game',
+                gameTitle: 'Poker Memory Game',
+                singleHint: '⏱️ Solo Challenge: Match all 26 pairs within 3 minutes!',
+                selectPlayers: 'Select Number of Players:',
+                p1: '1 Player',
+                p2: '2 Players',
+                p3: '3 Players',
+                p4: '4 Players',
+                badgeP1: '3:00 Limit',
+                soundOn: 'Sound: ON',
+                soundOff: 'Sound: OFF',
+                switchLangBtn: '繁體中文',
+                colors: ['Red', 'Green', 'Yellow', 'White'],
+                currentTurn: (p, color) => `Turn: Player ${p} (${color})`,
+                singleStatus: (pairs) => `Solo Challenge | Matched: ${pairs} / 26`,
+                playerScore: (p, s) => `Player ${p}: ${s} pts`,
+                singleScore: (s) => `Matched: ${s} pairs`,
+                timerCountUp: (m, s) => `Time: ${m}:${s}`,
+                timerCountdown: (m, s) => `Time Left: ${m}:${s}`,
+                endTitleMulti: 'Game Over!',
+                endTitleSingleWin: 'Mission Accomplished!',
+                endTitleSingleLose: "Time's Up! Mission Failed",
+                finalPlayerScore: (p, s) => `Player ${p}: ${s} pts`,
+                finalSinglePairs: (s) => `Pairs Matched: ${s} / 26`,
+                winnerText: (w) => `🏆 Winner: Player ${w}`,
+                tieText: (w) => `🤝 Tie Winners: Player ${w}`,
+                totalTimeMulti: (m, s) => `Total Time: ${m}m ${s}s`,
+                totalTimeSingleWin: (m, s) => `Mission Completed in: ${m}m ${s}s`,
+                totalTimeSingleLose: 'The 3-minute time limit has expired!',
+                retryBtn: 'Play Again',
+                homeBtn: 'Change Players',
+                encouragements: [
+                    "Don't give up! Memory gets sharper with practice. Take a deep breath and try again! 💪",
+                    "So close! You've already warmed up your brain—next round will be yours! ✨",
+                    "Great effort! Matching 52 cards is a true brain workout. You can beat the clock next time! 🌟",
+                    "Practice makes perfect! Every flip trains your focus. Give it another shot! 🔥"
+                ]
+            }
+        };
+
+        /* ==========================================
+         * 2. Web Audio API 原生合成音效系統
+         * ========================================== */
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            updateStaticUIText();
+            if (soundEnabled) {
+                playCardFlipSound();
+            }
+        }
+
+        // (1) 點擊卡牌：清脆「翻牌紙牌聲 (Card Flip)」
+        function playCardFlipSound() {
+            if (!soundEnabled) return;
+            const ctx = getAudioContext();
+            if (!ctx) return;
+
+            const now = ctx.currentTime;
+
+            // 短促白噪音模擬紙牌摩擦聲
+            const bufferSize = Math.floor(ctx.sampleRate * 0.055);
+            const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+            }
+
+            const whiteNoise = ctx.createBufferSource();
+            whiteNoise.buffer = noiseBuffer;
+
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(1600, now);
+            filter.frequency.exponentialRampToValueAtTime(3200, now + 0.05);
+            filter.Q.value = 1.2;
+
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.35, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.055);
+
+            whiteNoise.connect(filter);
+            filter.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            whiteNoise.start(now);
+
+            // 搭配清脆高頻短音增加翻牌手感
+            const osc = ctx.createOscillator();
+            const oscGain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(320, now);
+            osc.frequency.exponentialRampToValueAtTime(780, now + 0.045);
+
+            oscGain.gain.setValueAtTime(0.12, now);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+            osc.connect(oscGain);
+            oscGain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.05);
+        }
+
+        // (2) 配對成功：「叮咚悅耳音 (Match Success)」
+        function playMatchSuccessSound() {
+            if (!soundEnabled) return;
+            const ctx = getAudioContext();
+            if (!ctx) return;
+
+            const now = ctx.currentTime;
+            // 雙音叮咚 (E5 -> G#5 -> B5 泛音感)
+            const notes = [
+                { freq: 659.25, start: 0, duration: 0.18 },    // 叮 (E5)
+                { freq: 880.00, start: 0.11, duration: 0.35 }  // 咚 (A5)
+            ];
+
+            notes.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(n.freq, now + n.start);
+
+                gain.gain.setValueAtTime(0.001, now + n.start);
+                gain.gain.linearRampToValueAtTime(0.25, now + n.start + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + n.start + n.duration);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + n.start);
+                osc.stop(now + n.start + n.duration);
+            });
+        }
+
+        // (3) 配對失敗蓋回：「低沉落空音 (Card Flip Back)」
+        function playCardFlipBackSound() {
+            if (!soundEnabled) return;
+            const ctx = getAudioContext();
+            if (!ctx) return;
+
+            const now = ctx.currentTime;
+            const notes = [
+                { freq: 260, start: 0, dur: 0.12 },
+                { freq: 185, start: 0.10, dur: 0.22 }
+            ];
+
+            notes.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(n.freq, now + n.start);
+                osc.frequency.linearRampToValueAtTime(n.freq * 0.88, now + n.start + n.dur);
+
+                gain.gain.setValueAtTime(0.2, now + n.start);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + n.start + n.dur);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + n.start);
+                osc.stop(now + n.start + n.dur);
+            });
+        }
+
+        // (4) 遊戲獲勝：「慶祝號角/撒花音效 (Win Jingle)」
+        function playWinJingleSound() {
+            if (!soundEnabled) return;
+            const ctx = getAudioContext();
+            if (!ctx) return;
+
+            const now = ctx.currentTime;
+            // 歡樂號角琶音 C5 -> E5 -> G5 -> C6
+            const melody = [
+                { freq: 523.25, start: 0.00, dur: 0.13 },
+                { freq: 659.25, start: 0.13, dur: 0.13 },
+                { freq: 783.99, start: 0.26, dur: 0.13 },
+                { freq: 1046.50, start: 0.39, dur: 0.55 }
+            ];
+
+            melody.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(n.freq, now + n.start);
+
+                gain.gain.setValueAtTime(0.001, now + n.start);
+                gain.gain.linearRampToValueAtTime(0.26, now + n.start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + n.start + n.dur);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + n.start);
+                osc.stop(now + n.start + n.dur);
+            });
+
+            // 撒花高頻閃亮音效
+            for (let i = 0; i < 6; i++) {
+                const sparkleOsc = ctx.createOscillator();
+                const sparkleGain = ctx.createGain();
+                const startT = now + 0.42 + i * 0.06;
+                sparkleOsc.type = 'sine';
+                sparkleOsc.frequency.setValueAtTime(1400 + i * 220, startT);
+
+                sparkleGain.gain.setValueAtTime(0.08, startT);
+                sparkleGain.gain.exponentialRampToValueAtTime(0.001, startT + 0.12);
+
+                sparkleOsc.connect(sparkleGain);
+                sparkleGain.connect(ctx.destination);
+                sparkleOsc.start(startT);
+                sparkleOsc.stop(startT + 0.12);
+            }
+        }
+
+        // (5) 單人時間到失敗：「很可惜的音效 (Lose / Sad Trombone Jingle)」
+        function playLoseSound() {
+            if (!soundEnabled) return;
+            const ctx = getAudioContext();
+            if (!ctx) return;
+
+            const now = ctx.currentTime;
+            // 經典惋惜下行半音階 (D4 -> C#4 -> C4 -> B3 滑音)
+            const sadNotes = [
+                { freq: 293.66, start: 0.00, dur: 0.28 },
+                { freq: 277.18, start: 0.30, dur: 0.28 },
+                { freq: 261.63, start: 0.60, dur: 0.28 },
+                { freq: 246.94, start: 0.90, dur: 0.65, slideTo: 220.00 }
+            ];
+
+            sadNotes.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+
+                // 加入低通濾波讓音色溫暖不刺耳
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 950;
+
+                osc.frequency.setValueAtTime(n.freq, now + n.start);
+                if (n.slideTo) {
+                    osc.frequency.linearRampToValueAtTime(n.slideTo, now + n.start + n.dur);
+                }
+
+                gain.gain.setValueAtTime(0.001, now + n.start);
+                gain.gain.linearRampToValueAtTime(0.18, now + n.start + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + n.start + n.dur);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + n.start);
+                osc.stop(now + n.start + n.dur);
+            });
+        }
+
+        /* ==========================================
+         * 3. 遊戲狀態與核心邏輯
+         * ========================================== */
+        const suits = ['♠', '♥', '♦', '♣'];
+        const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const bgColors = ['var(--bg-p1)', 'var(--bg-p2)', 'var(--bg-p3)', 'var(--bg-p4)'];
+
+        const SINGLE_PLAYER_LIMIT_SEC = 180; // 單人模式 3 分鐘 (180秒)
+
+        let numPlayers = 1;
+        let currentPlayer = 0;
+        let scores = [];
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let isLockBoard = false;
+        let isGameActive = false;
+
+        let startTime = 0;
+        let elapsedSeconds = 0;
+        let remainingSeconds = SINGLE_PLAYER_LIMIT_SEC;
+        let timerInterval = null;
+        let flipBackTimeout = null;
+        let endTransitionTimeout = null;
+
+        // 記錄結束畫面資訊以供即時切換語言重新渲染
+        let lastEndState = {
+            ended: false,
+            outcome: 'multi', // 'single-win', 'single-lose', 'multi'
+            spentMinutes: '00',
+            spentSeconds: '00',
+            encouragementIndex: 0
+        };
+
+        // 切換語言
+        function toggleLanguage() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            document.documentElement.lang = currentLang === 'zh' ? 'zh-TW' : 'en';
+            updateStaticUIText();
+
+            if (isGameActive) {
+                updatePlayerUI();
+                renderTimerText();
+            } else if (lastEndState.ended) {
+                renderEndScreenContent();
+            }
+        }
+
+        // 更新所有固定介面文字
+        function updateStaticUIText() {
+            const t = i18n[currentLang];
+            document.title = t.pageTitle;
+            document.getElementById('ui-title').innerText = t.gameTitle;
+            document.getElementById('ui-single-hint').innerText = t.singleHint;
+            document.getElementById('ui-select-players').innerText = t.selectPlayers;
+            document.getElementById('btn-p1').innerText = t.p1;
+            document.getElementById('btn-p2').innerText = t.p2;
+            document.getElementById('btn-p3').innerText = t.p3;
+            document.getElementById('btn-p4').innerText = t.p4;
+            document.getElementById('badge-p1').innerText = t.badgeP1;
+
+            document.getElementById('sound-icon').innerText = soundEnabled ? '🔊' : '🔇';
+            document.getElementById('sound-text').innerText = soundEnabled ? t.soundOn : t.soundOff;
+            document.getElementById('lang-btn-text').innerText = t.switchLangBtn;
+
+            document.getElementById('btn-retry-same').innerText = t.retryBtn;
+            document.getElementById('btn-back-home').innerText = t.homeBtn;
+        }
+
+        // 清除所有未執行的計時器，確保轉場乾淨不衝突
+        function clearAllTimers() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            if (flipBackTimeout) {
+                clearTimeout(flipBackTimeout);
+                flipBackTimeout = null;
+            }
+            if (endTransitionTimeout) {
+                clearTimeout(endTransitionTimeout);
+                endTransitionTimeout = null;
+            }
+        }
+
+        // 啟動遊戲
+        function startGame(players) {
+            getAudioContext(); // 解鎖瀏覽器音效限制
+            clearAllTimers();
+
+            numPlayers = players;
+            currentPlayer = 0;
+            scores = Array(numPlayers).fill(0);
+            matchedPairs = 0;
+            flippedCards = [];
+            isLockBoard = false;
+            isGameActive = true;
+            lastEndState.ended = false;
+
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('timer-display').classList.remove('timer-urgent');
+
+            updatePlayerUI();
+            initBoard();
+            startTimer();
+        }
+
+        // 再挑戰一次相同人數模式
+        function retrySameMode() {
+            startGame(numPlayers);
+        }
+
+        // 初始化 52 張撲克牌局
+        function initBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            
+            cards = [];
+            for (let suit of suits) {
+                for (let rank of ranks) {
+                    cards.push({ suit, rank });
+                }
+            }
+
+            // Fisher-Yates 洗牌演算法
+            for (let i = cards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cards[i], cards[j]] = [cards[j], cards[i]];
+            }
+
+            // 渲染卡牌 DOM
+            cards.forEach((card, index) => {
+                const cardEl = document.createElement('div');
+                cardEl.classList.add('card');
+                cardEl.dataset.rank = card.rank;
+                cardEl.dataset.index = index;
+                
+                const isRed = card.suit === '♥' || card.suit === '♦';
+                const suitColorClass = isRed ? 'red-suit' : 'black-suit';
+
+                cardEl.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-face card-back"></div>
+                        <div class="card-face card-front ${suitColorClass}">
+                            <div class="corner top-left">${card.rank}<br>${card.suit}</div>
+                            <div class="center-suit">${card.suit}</div>
+                            <div class="corner bottom-right">${card.rank}<br>${card.suit}</div>
+                        </div>
+                    </div>
+                `;
+
+                cardEl.addEventListener('click', () => flipCard(cardEl));
+                board.appendChild(cardEl);
+            });
+        }
+
+        // 翻牌邏輯
+        function flipCard(cardEl) {
+            if (!isGameActive || isLockBoard) return;
+            if (cardEl === flippedCards[0]) return; // 防止連點同一張
+            if (cardEl.classList.contains('matched') || cardEl.classList.contains('flipped')) return;
+
+            // 播放清脆翻牌音效
+            playCardFlipSound();
+
+            cardEl.classList.add('flipped');
+            flippedCards.push(cardEl);
+
+            if (flippedCards.length === 2) {
+                checkMatch();
+            }
+        }
+
+        // 檢查是否配對成功
+        function checkMatch() {
+            isLockBoard = true;
+            const [card1, card2] = flippedCards;
+            const isMatch = card1.dataset.rank === card2.dataset.rank;
+
+            if (isMatch) {
+                scores[currentPlayer]++;
+                matchedPairs++;
+                
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                
+                updatePlayerUI();
+
+                // 檢查是否完成全部 26 對
+                if (matchedPairs === 26) {
+                    isGameActive = false;
+                    if (timerInterval) clearInterval(timerInterval);
+                    playMatchSuccessSound();
+
+                    // 留 600ms 讓最後一張牌完成 0.4s 翻轉動畫後再順暢切入結算畫面
+                    endTransitionTimeout = setTimeout(() => {
+                        endGame(numPlayers === 1 ? 'single-win' : 'multi');
+                    }, 600);
+                } else {
+                    playMatchSuccessSound();
+                    resetFlippedState();
+                }
+            } else {
+                // 配對失敗：等待玩家看清楚牌面後蓋回並播放低沉落空音
+                flipBackTimeout = setTimeout(() => {
+                    if (!isGameActive) return;
+                    playCardFlipBackSound();
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    currentPlayer = (currentPlayer + 1) % numPlayers;
+                    updatePlayerUI();
+                    resetFlippedState();
+                }, 900);
+            }
+        }
+
+        // 重置翻牌鎖定狀態
+        function resetFlippedState() {
+            flippedCards = [];
+            isLockBoard = false;
+        }
+
+        // 更新畫面上的玩家狀態與分數
+        function updatePlayerUI() {
+            const t = i18n[currentLang];
+            document.body.style.backgroundColor = bgColors[currentPlayer];
+
+            const statusEl = document.getElementById('status-text');
+            if (numPlayers === 1) {
+                statusEl.innerText = t.singleStatus(matchedPairs);
+            } else {
+                statusEl.innerText = t.currentTurn(currentPlayer + 1, t.colors[currentPlayer]);
+            }
+
+            const scoresContainer = document.getElementById('scores');
+            scoresContainer.innerHTML = '';
+
+            if (numPlayers === 1) {
+                const scoreSpan = document.createElement('span');
+                scoreSpan.innerText = t.singleScore(scores[0]);
+                scoreSpan.classList.add('active-player');
+                scoresContainer.appendChild(scoreSpan);
+            } else {
+                for (let i = 0; i < numPlayers; i++) {
+                    const scoreSpan = document.createElement('span');
+                    scoreSpan.innerText = t.playerScore(i + 1, scores[i]);
+                    if (i === currentPlayer) {
+                        scoreSpan.classList.add('active-player');
+                    }
+                    scoresContainer.appendChild(scoreSpan);
+                }
+            }
+        }
+
+        // 啟動計時器 (單人 3 分鐘倒數 / 多人正計時)
+        function startTimer() {
+            startTime = Date.now();
+            elapsedSeconds = 0;
+            remainingSeconds = SINGLE_PLAYER_LIMIT_SEC;
+            renderTimerText();
+
+            timerInterval = setInterval(() => {
+                if (!isGameActive) return;
+
+                elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+
+                if (numPlayers === 1) {
+                    remainingSeconds = Math.max(0, SINGLE_PLAYER_LIMIT_SEC - elapsedSeconds);
+                    renderTimerText();
+
+                    // 最後 30 秒給予紅色閃爍提醒
+                    const timerEl = document.getElementById('timer-display');
+                    if (remainingSeconds <= 30) {
+                        timerEl.classList.add('timer-urgent');
+                    } else {
+                        timerEl.classList.remove('timer-urgent');
+                    }
+
+                    // 時間到且尚未完成配對 -> 觸發任務失敗
+                    if (remainingSeconds <= 0 && matchedPairs < 26) {
+                        handleSinglePlayerTimeout();
+                    }
+                } else {
+                    renderTimerText();
+                }
+            }, 250);
+        }
+
+        // 渲染計時器文字
+        function renderTimerText() {
+            const t = i18n[currentLang];
+            const timerEl = document.getElementById('timer-display');
+
+            if (numPlayers === 1) {
+                const m = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+                const s = String(remainingSeconds % 60).padStart(2, '0');
+                timerEl.innerText = t.timerCountdown(m, s);
+            } else {
+                const m = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+                const s = String(elapsedSeconds % 60).padStart(2, '0');
+                timerEl.innerText = t.timerCountUp(m, s);
+            }
+        }
+
+        // 處理單人模式時間到
+        function handleSinglePlayerTimeout() {
+            isGameActive = false;
+            isLockBoard = true;
+            clearAllTimers();
+
+            // 短暫停頓讓玩家意識到時間歸零，再切換到結算畫面
+            endTransitionTimeout = setTimeout(() => {
+                endGame('single-lose');
+            }, 400);
+        }
+
+        // 遊戲結束與串場處理
+        function endGame(outcomeType) {
+            clearAllTimers();
+            isGameActive = false;
+            isLockBoard = true;
+
+            // 計算實際花費時間
+            const totalSpentSec = numPlayers === 1
+                ? Math.min(SINGLE_PLAYER_LIMIT_SEC, Math.max(1, Math.floor((Date.now() - startTime) / 1000)))
+                : Math.floor((Date.now() - startTime) / 1000);
+
+            const m = String(Math.floor(totalSpentSec / 60)).padStart(2, '0');
+            const s = String(totalSpentSec % 60).padStart(2, '0');
+
+            lastEndState = {
+                ended: true,
+                outcome: outcomeType,
+                spentMinutes: m,
+                spentSeconds: s,
+                encouragementIndex: Math.floor(Math.random() * i18n.zh.encouragements.length)
+            };
+
+            // 播放對應結算音效
+            if (outcomeType === 'single-lose') {
+                playLoseSound();
+                document.body.style.backgroundColor = "#3d405b";
+            } else {
+                playWinJingleSound();
+                document.body.style.backgroundColor = "#2a9d8f";
+            }
+
+            renderEndScreenContent();
+
+            document.getElementById('game-screen').classList.add('hidden');
+            const endScreen = document.getElementById('end-screen');
+            endScreen.classList.remove('hidden');
+            endScreen.classList.remove('fade-in');
+            void endScreen.offsetWidth; // 觸發重繪以播放流暢淡入動畫
+            endScreen.classList.add('fade-in');
+        }
+
+        // 渲染結束畫面內容（支援結束畫面時即時切換中英文）
+        function renderEndScreenContent() {
+            const t = i18n[currentLang];
+            const { outcome, spentMinutes, spentSeconds, encouragementIndex } = lastEndState;
+
+            const endIconEl = document.getElementById('end-icon');
+            const endTitleEl = document.getElementById('end-title');
+            const finalScoresEl = document.getElementById('final-scores');
+            const encouragementEl = document.getElementById('encouragement-msg');
+            const finalTimeEl = document.getElementById('final-time');
+
+            if (outcome === 'single-win') {
+                endIconEl.innerText = '🏆';
+                endTitleEl.innerText = t.endTitleSingleWin;
+                endTitleEl.style.color = '#28a745';
+                finalScoresEl.innerHTML = `<div style="font-weight:bold; color:#155724;">${t.finalSinglePairs(matchedPairs)}</div>`;
+                encouragementEl.classList.add('hidden');
+                finalTimeEl.innerText = t.totalTimeSingleWin(spentMinutes, spentSeconds);
+            } else if (outcome === 'single-lose') {
+                endIconEl.innerText = '⏳';
+                endTitleEl.innerText = t.endTitleSingleLose;
+                endTitleEl.style.color = '#d9534f';
+                finalScoresEl.innerHTML = `<div style="font-weight:bold;">${t.finalSinglePairs(matchedPairs)}</div>`;
+                encouragementEl.innerText = t.encouragements[encouragementIndex];
+                encouragementEl.classList.remove('hidden');
+                finalTimeEl.innerText = t.totalTimeSingleLose;
+            } else {
+                // 多人模式結算
+                endIconEl.innerText = '🎉';
+                endTitleEl.innerText = t.endTitleMulti;
+                endTitleEl.style.color = '#1a365d';
+                encouragementEl.classList.add('hidden');
+
+                let resultHTML = '';
+                let maxScore = Math.max(...scores);
+                let winners = [];
+
+                scores.forEach((score, index) => {
+                    resultHTML += `<div>${t.finalPlayerScore(index + 1, score)}</div>`;
+                    if (score === maxScore) winners.push(index + 1);
+                });
+
+                if (winners.length > 1) {
+                    resultHTML += `<h3 style="color:#d90429; margin-bottom:4px;">${t.tieText(winners.join(', '))}</h3>`;
+                } else {
+                    resultHTML += `<h3 style="color:#d90429; margin-bottom:4px;">${t.winnerText(winners[0])}</h3>`;
+                }
+
+                finalScoresEl.innerHTML = resultHTML;
+                finalTimeEl.innerText = t.totalTimeMulti(spentMinutes, spentSeconds);
+            }
+        }
+
+        // 返回設定主畫面
+        function resetGame() {
+            clearAllTimers();
+            isGameActive = false;
+            lastEndState.ended = false;
+            document.body.style.backgroundColor = "#2b2d42";
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('hidden');
+            const setupScreen = document.getElementById('setup-screen');
+            setupScreen.classList.remove('hidden');
+            setupScreen.classList.remove('fade-in');
+            void setupScreen.offsetWidth;
+            setupScreen.classList.add('fade-in');
+        }
+
+        // 初始化文字
+        updateStaticUIText();
+    </script>
+</body>
+</html>
